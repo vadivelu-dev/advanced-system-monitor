@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: asm-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: asm
+  template:
+    metadata:
+      labels:
+        app: asm
+    spec:
+      containers:
+        - name: asm
+          image: bbrijesh/advanced_system_monitor:latest
+          ports:
+            - containerPort: 5000
