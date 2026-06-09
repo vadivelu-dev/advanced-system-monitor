@@ -1,49 +1,83 @@
 pipeline {
+
     agent any
 
     environment {
-        IMAGE_NAME = "bbrijesh/advanced_system_monitor"
+        IMAGE_NAME = "vadivelu123/advanced_system_monitor"
     }
 
     stages {
 
-        stage('Clone') {
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Build Image') {
+        stage('Set Image Tag') {
             steps {
-                sh 'docker build -t $IMAGE_NAME:latest .'
+                script {
+                    env.IMAGE_TAG = "build-${env.BUILD_NUMBER}"
+                }
+
+                echo "Image Tag: ${env.IMAGE_TAG}"
             }
         }
 
-        stage('Push Image') {
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} advanced-system-monitor/"
+            }
+        }
+
+        stage('Login & Push Docker Image') {
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-creds',
                     usernameVariable: 'USER',
                     passwordVariable: 'PASS'
                 )]) {
-                    sh '''
+
+                    sh """
                     echo $PASS | docker login -u $USER --password-stdin
-                    docker push $IMAGE_NAME:latest
-                    '''
+                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                    """
                 }
             }
         }
 
-        stage('Deploy') {
+        stage('Update Helm Values (GitOps Repo)') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh '''
-                    export KUBECONFIG=$KUBECONFIG
-                    kubectl apply -f k8s/
-                    '''
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-creds',
+                    usernameVariable: 'GIT_USER',
+                    passwordVariable: 'GIT_TOKEN'
+                )]) {
+
+                    sh """
+                    rm -rf gitops-repo
+                    git clone git@github.com:vadivelu-dev/advanced-system-monitor.git gitops-repo
+
+                    cd gitops-repo/helm/advanced-system-monitor
+
+                    echo "Before update:"
+                    cat values.yaml
+
+                    # UPDATE ONLY IMAGE TAG (HELM WAY)
+                    sed -i 's/tag:.*/tag: ${IMAGE_TAG}/g' values.yaml
+
+                    echo "After update:"
+                    cat values.yaml
+
+                    git config user.name "jenkins"
+                    git config user.email "jenkins@ci.com"
+
+                    git add values.yaml
+                    git commit -m "Update image tag to ${IMAGE_TAG}"
+                    git push origin main
+                    """
                 }
             }
         }
-
     }
 }
