@@ -20,7 +20,7 @@ spec:
       containers:
       - name: myapp
 
-        image: bbrijesh/advanced_system_monitor:latest
+        image: vadivelu123/advanced_sytem_monitor:latest
 
         ports:
         - containerPort: 80
