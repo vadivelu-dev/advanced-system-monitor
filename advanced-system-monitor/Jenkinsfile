@@ -58,7 +58,7 @@ pipeline {
                     rm -rf gitops-repo
                     git clone git@github.com:vadivelu-dev/advanced-system-monitor.git gitops-repo
 
-                    cd gitops-repo/helm/advanced-system-monitor
+                    cd gitops-repo/helm/my-app
 
                     echo "Before update:"
                     cat values.yaml
